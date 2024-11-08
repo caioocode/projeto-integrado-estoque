@@ -93,7 +93,7 @@ def listar_produtos():
 
     return {"produtos": produtos}
 
-@app.put("/produtos/{nome}")
+@app.put("/produtos/")
 def atualizar_produto(nome: str, produto: Produto):
     conexao = conectar()
     cursor = conexao.cursor()
@@ -136,23 +136,21 @@ def deletar_produto(nome: str):
     cursor = conexao.cursor()
 
     # Pegando o produto para a movimentação de saída
-    cursor.execute("SELECT quantidade_estoque FROM produtos WHERE nome = ?", (nome,))
+    cursor.execute("SELECT nome, quantidade_estoque FROM produtos WHERE nome = ?", (nome,))
     produto = cursor.fetchone()
 
     if produto is None:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
 
-    #deletar produto
+    # Deletando o produto
     cursor.execute("DELETE FROM produtos WHERE nome = ?", (nome,))
-    conexao.commit()
-    conexao.close()
     
-    # Registrando a movimentação de saída
+    # Registrando a movimentação de saída após a exclusão
     cursor.execute('''
         INSERT INTO movimentacoes (nome_produto, quantidade, tipo_movimentacao)
         VALUES (?, ?, ?)
-    ''', (nome, produto[0], 'saida'))
-    
+    ''', (nome, produto[1], 'saida'))  # produto[1] é a quantidade_estoque
+
     conexao.commit()
     conexao.close()
     
