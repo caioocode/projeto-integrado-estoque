@@ -45,7 +45,7 @@ def criar_tabela_movimentacoes():
         CREATE TABLE IF NOT EXISTS movimentacoes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nome_produto TEXT NOT NULL,
-            quantidade ALTER INTEGER NOT NULL,
+            quantidade INTEGER NOT NULL,
             tipo_movimentacao TEXT CHECK(tipo_movimentacao IN ('entrada', 'saida')) NOT NULL,
             data_movimentacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (nome_produto) REFERENCES produtos (nome)
@@ -84,28 +84,47 @@ def adicionar_produto(nome, categoria, quantidade_estoque, preco, localizacao_de
 def listar_produtos():
     conexao = conectar()
     cursor = conexao.cursor()
-    cursor.execute("SELECT * FROM produtos")
+    cursor.execute("SELECT nome, categoria, quantidade_estoque, preco, localizacao_deposito FROM produtos")
     produtos = cursor.fetchall()
     conexao.close()
-    for produto in produtos:
-        print(produto)
+    
+    if not produtos:
+        raise HTTPException(status_code=404, detail="Nenhum produto encontrado")
 
+    return {"produtos": produtos}
 
-# Atualizar um produto por NOME (Update)
 @app.put("/produtos/{nome}")
-def atualizar_produto(nome, categoria, quantidade_estoque, preco, localizacao_deposito):
+def atualizar_produto(nome: str, produto: Produto):
     conexao = conectar()
     cursor = conexao.cursor()
+
+    # Verificar se o produto existe
+    cursor.execute("SELECT nome, quantidade_estoque FROM produtos WHERE nome = ?", (nome,))
+    produto_antigo = cursor.fetchone()
+
+    if produto_antigo is None:
+        raise HTTPException(status_code=404, detail="Produto não encontrado")
+
+    # Atualizando produto
     cursor.execute('''
         UPDATE produtos
         SET nome = ?, categoria = ?, quantidade_estoque = ?, preco = ?, localizacao_deposito = ?
-        WHERE id = ?
-    ''', (nome, categoria, quantidade_estoque, preco, localizacao_deposito))
+        WHERE nome = ?
+    ''', (produto.nome, produto.categoria, produto.quantidade_estoque, produto.preco, produto.localizacao_deposito, nome))
+    
+    # Calculando a diferença de quantidade
+    diferenca = produto.quantidade_estoque - produto_antigo[1]
+    tipo_movimentacao = 'entrada' if diferenca > 0 else 'saida'
+
+    if diferenca != 0:
+        # Registrando a movimentação
+        cursor.execute('''
+            INSERT INTO movimentacoes (nome_produto, quantidade, tipo_movimentacao)
+            VALUES (?, ?, ?)
+        ''', (produto.nome, abs(diferenca), tipo_movimentacao))
+
     conexao.commit()
     conexao.close()
-    
-    if cursor.rowcount == 0:
-        raise HTTPException(status_code=404, detail="Produto não encontrado")
     
     return {"message": "Produto atualizado com sucesso"}
 
@@ -115,15 +134,32 @@ def atualizar_produto(nome, categoria, quantidade_estoque, preco, localizacao_de
 def deletar_produto(nome: str):
     conexao = conectar()
     cursor = conexao.cursor()
-    cursor.execute("DELETE FROM produtos WHERE id = ?", (nome,))
+
+    # Pegando o produto para a movimentação de saída
+    cursor.execute("SELECT quantidade_estoque FROM produtos WHERE nome = ?", (nome,))
+    produto = cursor.fetchone()
+
+    if produto is None:
+        raise HTTPException(status_code=404, detail="Produto não encontrado")
+
+    #deletar produto
+    cursor.execute("DELETE FROM produtos WHERE nome = ?", (nome,))
     conexao.commit()
     conexao.close()
     
-    if cursor.rowcount == 0:
-        raise HTTPException(status_code=404, detail="Produto não encontrado")
-
+    # Registrando a movimentação de saída
+    cursor.execute('''
+        INSERT INTO movimentacoes (nome_produto, quantidade, tipo_movimentacao)
+        VALUES (?, ?, ?)
+    ''', (nome, produto[0], 'saida'))
+    
+    conexao.commit()
+    conexao.close()
+    
     return {"message": "Produto deletado com sucesso"}
 
+
+#Gerar relatorio
 @app.get("/produtos/{nome}")
 def gerar_relatorio(nome: str):
     conexao = conectar()
