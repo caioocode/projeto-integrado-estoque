@@ -321,8 +321,8 @@ def solicitar_compra(solicitacao: SolicitacaoCompra):
     #Registrar a movimentação
     cursor.execute('''
     INSERT INTO movimentacoes (nome_produto, quantidade, preco, tipo_movimentacao)
-    VALUES (?, ?, ?)
-''', (solicitacao.nome_produto, solicitacao.quantidade, solicitacao.preco, 'entrada'))
+    VALUES (?, ?, ?, ?)
+''', (solicitacao.nome_produto, solicitacao.quantidade, 0, 'entrada'))
 
     conexao.commit()
 
