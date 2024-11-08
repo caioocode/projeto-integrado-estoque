@@ -17,6 +17,7 @@ class Produto(BaseModel):
 class Movimentacao(BaseModel):
     nome_produto: str
     quantidade: int
+    preco: float
     tipo_movimentacao: str
 
 # Modelo de Dados para a Nota Fiscal
@@ -24,8 +25,15 @@ class NotaFiscal(BaseModel):
     numero: str
     nome_produto: str
     quantidade: int
+    preco: float
     valor_total: float
     tipo_movimentacao: str  # entrada ou saída
+
+#Modelo de Dados para Solicitação de Compras
+class SolicitacaoCompra(BaseModel):
+    nome_produto: str
+    quantidade: int
+
 
 # Função para conectar ao banco de dados
 def conectar():
@@ -60,6 +68,7 @@ def criar_tabela_movimentacoes():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nome_produto TEXT NOT NULL,
             quantidade INTEGER NOT NULL,
+            preco REAL NOT NULL,
             tipo_movimentacao TEXT CHECK(tipo_movimentacao IN ('entrada', 'saida')) NOT NULL,
             data_movimentacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (nome_produto) REFERENCES produtos (nome)
@@ -71,6 +80,7 @@ def criar_tabela_movimentacoes():
 # Chame a função para criar a tabela de movimentações
 criar_tabela_movimentacoes()
 
+
 # Criar tabela de notas fiscais
 def criar_tabela_notas_fiscais():
     conexao = conectar()
@@ -81,6 +91,7 @@ def criar_tabela_notas_fiscais():
             numero TEXT NOT NULL,
             nome_produto TEXT NOT NULL,
             quantidade INTEGER NOT NULL,
+            preco REAL NOT NULL,
             valor_total REAL NOT NULL,
             tipo_movimentacao TEXT CHECK(tipo_movimentacao IN ('entrada', 'saida')) NOT NULL,
             data_emissao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -91,6 +102,25 @@ def criar_tabela_notas_fiscais():
     conexao.close()
 
 criar_tabela_notas_fiscais()
+
+
+# Criar tabela de solicitações de compras
+def criar_tabela_solicitacoes_compras():
+    conexao = conectar()
+    cursor = conexao.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS solicitacoes_compras (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome_produto TEXT NOT NULL,
+            quantidade INTEGER NOT NULL,
+            data_solicitacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (nome_produto) REFERENCES produtos (nome)
+        )
+    ''')
+    conexao.commit()
+    conexao.close()
+
+criar_tabela_solicitacoes_compras()
 
 #-----------------------------------------------------------------------------------------------------------------
 # Criar um produto (Create)
@@ -105,9 +135,9 @@ def adicionar_produto(nome, categoria, quantidade_estoque, preco, localizacao_de
 
     # Registrando a movimentação (entrada)
     cursor.execute('''
-        INSERT INTO movimentacoes (nome_produto, quantidade, tipo_movimentacao)
-        VALUES (?, ?, ?)
-    ''', (nome, quantidade_estoque, 'entrada'))
+        INSERT INTO movimentacoes (nome_produto, quantidade, preco, tipo_movimentacao)
+        VALUES (?, ?, ?, ?)
+    ''', (nome, quantidade_estoque, preco, 'entrada'))
 
     conexao.commit()
     conexao.close()
@@ -154,9 +184,9 @@ def atualizar_produto(nome: str, produto: Produto):
     if diferenca != 0:
         # Registrando a movimentação
         cursor.execute('''
-            INSERT INTO movimentacoes (nome_produto, quantidade, tipo_movimentacao)
-            VALUES (?, ?, ?)
-        ''', (produto.nome, abs(diferenca), tipo_movimentacao))
+            INSERT INTO movimentacoes (nome_produto, quantidade, preco, tipo_movimentacao)
+            VALUES (?, ?, ?, ?)
+        ''', (produto.nome, abs(diferenca), produto.preco, tipo_movimentacao))
 
     conexao.commit()
     conexao.close()
@@ -182,8 +212,8 @@ def deletar_produto(nome: str):
     
     # Registrando a movimentação de saída após a exclusão
     cursor.execute('''
-        INSERT INTO movimentacoes (nome_produto, quantidade, tipo_movimentacao)
-        VALUES (?, ?, ?)
+        INSERT INTO movimentacoes (nome_produto, quantidade, preco, tipo_movimentacao)
+        VALUES (?, ?, ?, ?)
     ''', (nome, produto[1], 'saida'))  # produto[1] é a quantidade_estoque
 
     conexao.commit()
@@ -212,7 +242,7 @@ def gerar_relatorio(nome: str):
     # Retornando as movimentações como um relatório
     return {
         "produto": nome,
-        "movimentacoes": [{"data": m[4], "quantidade": m[2], "tipo": m[3]} for m in movimentacoes]
+        "movimentacoes": [{"data": m[5], "quantidade": m[2], "preco": m[3], "tipo": m[4]} for m in movimentacoes]
     }
 
 # Cadastrar Nota Fiscal
@@ -221,18 +251,44 @@ def cadastrar_nota_fiscal(nota: NotaFiscal):
     conexao = conectar()
     cursor = conexao.cursor()
     
+    # Calcular o valor total (se necessário)
+    if nota.valor_total is None:
+        nota.valor_total = nota.quantidade * nota.preco
+
     # Inserir a nova nota fiscal
     cursor.execute('''
-        INSERT INTO notas_fiscais (numero, nome_produto, quantidade, valor_total, tipo_movimentacao)
-        VALUES (?, ?, ?, ?, ?)
-    ''', (nota.numero, nota.nome_produto, nota.quantidade, nota.valor_total, nota.tipo_movimentacao))
+        INSERT INTO notas_fiscais (numero, nome_produto, quantidade, preco, valor_total, tipo_movimentacao)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (nota.numero, nota.nome_produto, nota.quantidade, nota.preco, nota.valor_total, nota.tipo_movimentacao))
     
     # Registrar a movimentação
     cursor.execute('''
-        INSERT INTO movimentacoes (nome_produto, quantidade, tipo_movimentacao)
-        VALUES (?, ?, ?)
-    ''', (nota.nome_produto, nota.quantidade, nota.tipo_movimentacao))
+        INSERT INTO movimentacoes (nome_produto, quantidade, preco, tipo_movimentacao)
+        VALUES (?, ?, ?, ?)
+    ''', (nota.nome_produto, nota.quantidade, nota.preco, nota.tipo_movimentacao))
     
     conexao.commit()
     conexao.close()
     return {"message": "Nota fiscal cadastrada com sucesso"}
+
+# Solicitar Compra
+@app.post("/solicitacoes_compras/")
+def solicitar_compra(solicitacao: SolicitacaoCompra):
+    conexao = conectar()
+    cursor = conexao.cursor()
+
+    # Inserir a nova solicitação de compra
+    cursor.execute('''
+        INSERT INTO solicitacoes_compras (nome_produto, quantidade)
+        VALUES (?, ?)
+    ''', (solicitacao.nome_produto, solicitacao.quantidade))
+
+    #Registrar a movimentação
+    cursor.execute('''
+        INSERT INTO movimentacoes (nome_produto, quantidade, preco, tipo_movimentacao)
+        VALUES (?, ?, ?, ?)
+    ''', (solicitacao.nome_produto, solicitacao.quantidade, 'saida'))
+
+    conexao.commit()
+    conexao.close()
+    return {"message": "Solicitação de compra registrada com sucesso"}
