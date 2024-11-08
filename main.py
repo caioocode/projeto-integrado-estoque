@@ -230,7 +230,7 @@ def deletar_produto(nome: str):
     cursor.execute('''
         INSERT INTO movimentacoes (nome_produto, quantidade, preco, tipo_movimentacao)
         VALUES (?, ?, ?, ?)
-    ''', (nome, produto[1], 'saida'))  # produto[1] é a quantidade_estoque
+    ''', (nome, produto[1], 0, 'saida'))  # produto[1] é a quantidade_estoque
 
     conexao.commit()
     conexao.close()
