@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import sqlite3
 
+
 # Configuração do FastAPI
 app = FastAPI()
 
@@ -33,7 +34,6 @@ class NotaFiscal(BaseModel):
 class SolicitacaoCompra(BaseModel):
     nome_produto: str
     quantidade: int
-    preco: float
 
 
 # Função para conectar ao banco de dados
@@ -70,7 +70,7 @@ def criar_tabela_movimentacoes():
             nome_produto TEXT NOT NULL,
             quantidade INTEGER NOT NULL,
             preco REAL NOT NULL,
-            tipo_movimentacao TEXT CHECK(tipo_movimentacao IN ('entrada', 'saida')) NOT NULL,
+            tipo_movimentacao TEXT CHECK(tipo_movimentacao IN ('entrada', 'saida', 'solicitacao')) NOT NULL,
             data_movimentacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (nome_produto) REFERENCES produtos (nome)
         )
@@ -159,6 +159,15 @@ def listar_produtos():
 
     return {"produtos": produtos}
 
+
+
+
+
+
+
+
+
+
 @app.put("/produtos/")
 def atualizar_produto(nome: str, produto: Produto):
     conexao = conectar()
@@ -195,6 +204,11 @@ def atualizar_produto(nome: str, produto: Produto):
     return {"message": "Produto atualizado com sucesso"}
 
 
+
+
+
+
+
 # Deletar um produto por NOME (Delete)
 @app.delete("/produtos/{nome}")
 def deletar_produto(nome: str):
@@ -223,6 +237,11 @@ def deletar_produto(nome: str):
     return {"message": "Produto deletado com sucesso"}
 
 
+
+
+
+
+
 #Gerar relatorio
 @app.get("/produtos/{nome}")
 def gerar_relatorio(nome: str):
@@ -245,6 +264,12 @@ def gerar_relatorio(nome: str):
         "produto": nome,
         "movimentacoes": [{"data": m[5], "quantidade": m[2], "preco": m[3], "tipo": m[4]} for m in movimentacoes]
     }
+
+
+
+
+
+
 
 # Cadastrar Nota Fiscal
 @app.post("/notas_fiscais/")
@@ -272,24 +297,33 @@ def cadastrar_nota_fiscal(nota: NotaFiscal):
     conexao.close()
     return {"message": "Nota fiscal cadastrada com sucesso"}
 
+
+
+
+
+
+
+
+
 # Solicitar Compra
 @app.post("/solicitacoes_compras/")
 def solicitar_compra(solicitacao: SolicitacaoCompra):
     conexao = conectar()
     cursor = conexao.cursor()
-
+    
     # Inserir a nova solicitação de compra
     cursor.execute('''
-        INSERT INTO solicitacoes_compras (nome_produto, quantidade, preco)
-        VALUES (?, ?, ?)
-    ''', (solicitacao.nome_produto, solicitacao.quantidade, solicitacao.preco))
+        INSERT INTO solicitacoes_compras (nome_produto, quantidade)
+        VALUES (?, ?)
+    ''', (solicitacao.nome_produto, solicitacao.quantidade))
 
     #Registrar a movimentação
     cursor.execute('''
         INSERT INTO movimentacoes (nome_produto, quantidade, preco, tipo_movimentacao)
         VALUES (?, ?, ?, ?)
-    ''', (solicitacao.nome_produto, solicitacao.quantidade, solicitacao.preco, 'entrada'))
+    ''', (solicitacao.nome_produto, solicitacao.quantidade, 0, 'solicitacao'))
 
     conexao.commit()
+
     conexao.close()
     return {"message": "Solicitação de compra registrada com sucesso"}
