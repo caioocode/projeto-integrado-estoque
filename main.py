@@ -33,6 +33,7 @@ class NotaFiscal(BaseModel):
 class SolicitacaoCompra(BaseModel):
     nome_produto: str
     quantidade: int
+    preco: float
 
 
 # Função para conectar ao banco de dados
@@ -279,15 +280,15 @@ def solicitar_compra(solicitacao: SolicitacaoCompra):
 
     # Inserir a nova solicitação de compra
     cursor.execute('''
-        INSERT INTO solicitacoes_compras (nome_produto, quantidade)
-        VALUES (?, ?)
-    ''', (solicitacao.nome_produto, solicitacao.quantidade))
+        INSERT INTO solicitacoes_compras (nome_produto, quantidade, preco)
+        VALUES (?, ?, ?)
+    ''', (solicitacao.nome_produto, solicitacao.quantidade, solicitacao.preco))
 
     #Registrar a movimentação
     cursor.execute('''
         INSERT INTO movimentacoes (nome_produto, quantidade, preco, tipo_movimentacao)
         VALUES (?, ?, ?, ?)
-    ''', (solicitacao.nome_produto, solicitacao.quantidade, 'saida'))
+    ''', (solicitacao.nome_produto, solicitacao.quantidade, solicitacao.preco, 'entrada'))
 
     conexao.commit()
     conexao.close()
