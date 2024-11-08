@@ -13,6 +13,20 @@ class Produto(BaseModel):
     preco: float
     localizacao_deposito: str
 
+# Modelo de Dados para a Movimentação
+class Movimentacao(BaseModel):
+    nome_produto: str
+    quantidade: int
+    tipo_movimentacao: str
+
+# Modelo de Dados para a Nota Fiscal
+class NotaFiscal(BaseModel):
+    numero: str
+    nome_produto: str
+    quantidade: int
+    valor_total: float
+    tipo_movimentacao: str  # entrada ou saída
+
 # Função para conectar ao banco de dados
 def conectar():
     return sqlite3.connect("estoque.db")
@@ -56,6 +70,27 @@ def criar_tabela_movimentacoes():
 
 # Chame a função para criar a tabela de movimentações
 criar_tabela_movimentacoes()
+
+# Criar tabela de notas fiscais
+def criar_tabela_notas_fiscais():
+    conexao = conectar()
+    cursor = conexao.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS notas_fiscais (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            numero TEXT NOT NULL,
+            nome_produto TEXT NOT NULL,
+            quantidade INTEGER NOT NULL,
+            valor_total REAL NOT NULL,
+            tipo_movimentacao TEXT CHECK(tipo_movimentacao IN ('entrada', 'saida')) NOT NULL,
+            data_emissao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (nome_produto) REFERENCES produtos (nome)
+        )
+    ''')
+    conexao.commit()
+    conexao.close()
+
+criar_tabela_notas_fiscais()
 
 #-----------------------------------------------------------------------------------------------------------------
 # Criar um produto (Create)
@@ -179,3 +214,25 @@ def gerar_relatorio(nome: str):
         "produto": nome,
         "movimentacoes": [{"data": m[4], "quantidade": m[2], "tipo": m[3]} for m in movimentacoes]
     }
+
+# Cadastrar Nota Fiscal
+@app.post("/notas_fiscais/")
+def cadastrar_nota_fiscal(nota: NotaFiscal):
+    conexao = conectar()
+    cursor = conexao.cursor()
+    
+    # Inserir a nova nota fiscal
+    cursor.execute('''
+        INSERT INTO notas_fiscais (numero, nome_produto, quantidade, valor_total, tipo_movimentacao)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (nota.numero, nota.nome_produto, nota.quantidade, nota.valor_total, nota.tipo_movimentacao))
+    
+    # Registrar a movimentação
+    cursor.execute('''
+        INSERT INTO movimentacoes (nome_produto, quantidade, tipo_movimentacao)
+        VALUES (?, ?, ?)
+    ''', (nota.nome_produto, nota.quantidade, nota.tipo_movimentacao))
+    
+    conexao.commit()
+    conexao.close()
+    return {"message": "Nota fiscal cadastrada com sucesso"}
