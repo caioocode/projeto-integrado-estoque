@@ -1,5 +1,5 @@
 import sqlite3
-from model.model import NotaFiscal
+from schema.schemas import NotaFiscal
 from db.queries.queries import conectar
 
 def cadastrar_nota_fiscal_service(nota: NotaFiscal):

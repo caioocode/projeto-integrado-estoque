@@ -1,6 +1,8 @@
 import sqlite3
-from model.model import Produto
+from fastapi import status
+from schema.schemas import Produto
 from db.queries.queries import conectar
+from utils.error.retorna_erro_http import retorna_erro_http
 
 def criar_produto_service(produto: Produto):
     try:
@@ -9,7 +11,7 @@ def criar_produto_service(produto: Produto):
 
         # Validação adicional de dados
         if not produto.nome or not produto.categoria or produto.quantidade_estoque < 0 or produto.preco < 0:
-            raise ValueError("Dados inválidos para o produto")
+            retorna_erro_http("Dados inválidos: ", status.HTTP_404_NOT_FOUND)
 
         # Inserção do produto
         cursor.execute('''
@@ -26,14 +28,8 @@ def criar_produto_service(produto: Produto):
         conexao.commit()
         conexao.close()
     except sqlite3.IntegrityError as e:
-         # Caso haja erro de integridade (ex: chave única duplicada)
-        print("Erro de integridade:", e)  # Adicionando logging
         raise ValueError("Erro de integridade no banco de dados: " + str(e))
     except sqlite3.OperationalError as e:
-    # Erro operacional, como erro de SQL ou banco de dados não encontrado
-        print("Erro operacional:", e)  # Adicionando logging
         raise sqlite3.DatabaseError("Erro operacional no banco de dados: " + str(e))
     except Exception as e:
-        # Erros gerais de exceção
-        print("Erro geral:", e)  # Adicionando logging
         raise Exception("Erro ao processar a solicitação: " + str(e))

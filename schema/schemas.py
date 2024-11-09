@@ -8,6 +8,14 @@ class Produto(BaseModel):
     preco: float
     localizacao_deposito: str
 
+class ProdutoResponse(BaseModel):
+    id: int
+    nome: str
+    categoria: str
+    quantidade_estoque: int
+    preco: float
+    localizacao_deposito: str
+
 # Modelo de Dados para a Movimentação
 class Movimentacao(BaseModel):
     nome_produto: str

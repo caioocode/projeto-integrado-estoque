@@ -1,5 +1,5 @@
 import sqlite3
-from model.model import SolicitacaoCompra
+from schema.schemas import SolicitacaoCompra
 from db.queries.queries import conectar
 
 def solicitar_compra_service(solicitacao: SolicitacaoCompra):

@@ -1,38 +1,46 @@
 import sqlite3
-from fastapi import HTTPException
-from model.model import Produto
+from fastapi import status
+from schema.schemas import Produto
 from db.queries.queries import conectar
+from utils.error.retorna_erro_http import retorna_erro_http
 
 
-def alterar_produto_service(nome: str, produto: Produto):
+def alterar_produto_service(id: str, produto: Produto):
     try:
-
         conexao = conectar()
         cursor = conexao.cursor()
 
         # Verificar se o produto existe
-        cursor.execute("SELECT nome, quantidade_estoque FROM produtos WHERE nome = ?", (nome,))
+        cursor.execute("SELECT quantidade_estoque FROM produtos WHERE id = ?", (id))
         produto_antigo = cursor.fetchone()
 
-        if produto_antigo is None:
-            raise HTTPException(status_code = 404, detail = "Produto não encontrado")
+        if not produto_antigo:
+            retorna_erro_http("Produto não encontrado.",status.HTTP_404_NOT_FOUND)
 
         # Atualizando produto
         cursor.execute('''UPDATE produtos SET nome = ?, categoria = ?, quantidade_estoque = ?, preco = ?, localizacao_deposito = ?WHERE nome = ?''',
-            (produto.nome, produto.categoria, produto.quantidade_estoque, produto.preco, produto.localizacao_deposito, nome))
+            (produto.nome, produto.categoria, produto.quantidade_estoque, produto.preco, produto.localizacao_deposito, produto.nome))
 
         # Calculando a diferença de quantidade
         diferenca = produto.quantidade_estoque - produto_antigo[1]
-        tipo_movimentacao = 'entrada' if diferenca > 0 else 'saida'
+        if diferenca > 0:
+            tipo_movimentacao = 'entrada'
+        else:
+            tipo_movimentacao = 'saida'
 
         if diferenca != 0:
             # Registrando a movimentação
             cursor.execute('''INSERT INTO movimentacoes (nome_produto, quantidade, preco, tipo_movimentacao)
             VALUES (?, ?, ?, ?)''',
             (produto.nome, abs(diferenca), produto.preco, tipo_movimentacao))
+        # Verificar se o produto existe
+        cursor.execute("SELECT * from produtos WHERE id = ?", (id))
+        produto_alterado = cursor.fetchone()
 
         conexao.commit()
         conexao.close()
+
+        return produto_alterado
     except sqlite3.IntegrityError as e:
         # Caso haja erro de integridade (ex: chave única duplicada)
         raise ValueError("Erro de integridade no banco de dados: " + str(e))

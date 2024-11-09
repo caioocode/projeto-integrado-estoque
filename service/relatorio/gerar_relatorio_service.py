@@ -1,24 +1,40 @@
 import sqlite3
-from fastapi import HTTPException
+from fastapi import status
 from db.queries.queries import conectar
+from utils.error.retorna_erro_http import retorna_erro_http
 
-def gerar_relatorio_service(nome: str):
+def gerar_relatorio_service(id: str):
     try:
 
         conexao = conectar()
         cursor = conexao.cursor()
 
         # Consultando as movimentações do produto
-        cursor.execute('''SELECT * FROM movimentacoes WHERE nome_produto = ? ORDER BY data_movimentacao DESC''',
-                       (nome,))
+        cursor.execute('''SELECT * FROM movimentacoes WHERE id = ? ORDER BY data_movimentacao DESC''',(id))
         movimentacoes = cursor.fetchall()
+
+        if not movimentacoes:
+            retorna_erro_http("Nenhuma movimentação encontrada para este produto", status.HTTP_404_NOT_FOUND)
+
+        # Convertendo as movimentações para uma lista de dicionários
+        colunas_movimentacoes = [col[0] for col in cursor.description]
+        movimentacoes_dict = [dict(zip(colunas_movimentacoes, mov)) for mov in movimentacoes]
+
+
+        cursor.execute('''SELECT * FROM produtos WHERE id = ?''',(id))
+        produto = cursor.fetchone()
+
+        if not produto:
+            retorna_erro_http("Produto não encontrado.",status.HTTP_404_NOT_FOUND)
+
+         # Convertendo o produto para um dicionário
+        colunas_produto = [col[0] for col in cursor.description]
+        produto_dict = dict(zip(colunas_produto, produto))
+
 
         conexao.close()
 
-        if not movimentacoes:
-            raise HTTPException(status_code=404, detail="Nenhuma movimentação encontrada para este produto")
-
-        return movimentacoes
+        return {"produto":produto_dict, "movimentacoes":movimentacoes_dict}
     except sqlite3.IntegrityError as e:
         # Caso haja erro de integridade (ex: chave única duplicada)
         raise ValueError("Erro de integridade no banco de dados: " + str(e))
