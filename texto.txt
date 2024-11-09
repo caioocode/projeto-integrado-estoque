@@ -1,0 +1,2 @@
+iniciar ambiente virtual: source venv\Scripts\activate | para desligar: deactivate
+iniciar servidor: uvicorn main:app --reload
