@@ -127,19 +127,20 @@ criar_tabela_solicitacoes_compras()
 #-----------------------------------------------------------------------------------------------------------------
 # Criar um produto (Create)
 @app.post("/produtos/")
-def adicionar_produto(nome, categoria, quantidade_estoque, preco, localizacao_deposito):
+def adicionar_produto(data: Produto):
     conexao = conectar()
+    print(data)  # Imprime os dados recebidos no console
     cursor = conexao.cursor()
     cursor.execute('''
         INSERT INTO produtos (nome, categoria, quantidade_estoque, preco, localizacao_deposito)
         VALUES (?, ?, ?, ?, ?)
-    ''', (nome, categoria, quantidade_estoque, preco, localizacao_deposito))
+    ''', (data.nome, data.categoria, data.quantidade_estoque, data.preco, data.localizacao_deposito))
 
     # Registrando a movimentação (entrada)
     cursor.execute('''
         INSERT INTO movimentacoes (nome_produto, quantidade, preco, tipo_movimentacao)
         VALUES (?, ?, ?, ?)
-    ''', (nome, quantidade_estoque, preco, 'entrada'))
+    ''', (data.nome, data.quantidade_estoque, data.preco, 'entrada'))
 
     conexao.commit()
     conexao.close()
