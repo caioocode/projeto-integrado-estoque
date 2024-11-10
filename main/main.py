@@ -7,7 +7,7 @@ import sqlite3
 app = FastAPI()
 
 # Modelo de Dados para o Produto
-class Produto(BaseModel):
+class Produto(BaseModel) :
     nome: str
     categoria: str
     quantidade_estoque: int
@@ -127,20 +127,19 @@ criar_tabela_solicitacoes_compras()
 #-----------------------------------------------------------------------------------------------------------------
 # Criar um produto (Create)
 @app.post("/produtos/")
-def adicionar_produto(data: Produto):
-    conexao = conectar()
-    print(data)  # Imprime os dados recebidos no console
+def adicionar_produto(produto:Produto):
+    conexao = conectar()  # Imprime os dados recebidos no console
     cursor = conexao.cursor()
     cursor.execute('''
         INSERT INTO produtos (nome, categoria, quantidade_estoque, preco, localizacao_deposito)
         VALUES (?, ?, ?, ?, ?)
-    ''', (data.nome, data.categoria, data.quantidade_estoque, data.preco, data.localizacao_deposito))
+    ''', (produto.nome, produto.categoria, produto.quantidade_estoque, produto.preco, produto.localizacao_deposito))
 
     # Registrando a movimentação (entrada)
     cursor.execute('''
         INSERT INTO movimentacoes (nome_produto, quantidade, preco, tipo_movimentacao)
         VALUES (?, ?, ?, ?)
-    ''', (data.nome, data.quantidade_estoque, data.preco, 'entrada'))
+    ''', (produto.nome, produto.quantidade_estoque, produto.preco, 'entrada'))
 
     conexao.commit()
     conexao.close()
