@@ -1,2 +1,2 @@
-iniciar ambiente virtual: source venv\Scripts\activate | para desligar: deactivate
-iniciar servidor: uvicorn main:app --reload
+iniciar ambiente virtual: source venv/Scripts/activate | para desligar: deactivate obs: dar o comando a partir da pasta raiz
+iniciar servidor:  python -m uvicorn main:app --reload

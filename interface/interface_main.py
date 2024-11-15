@@ -1,5 +1,4 @@
 from tkinter import *
-from tkinter import messagebox
 import requests  # Importando as funções do backend
 
 
@@ -9,13 +8,18 @@ import requests  # Importando as funções do backend
 def adicionar_produto_interface():
     nome = nome_entry.get()
     categoria = categoria_entry.get()
-    quantidade = int(quantidade_entry.get())
-    preco = float(preco_entry.get())
+    
+    try:
+        quantidade = int(quantidade_entry.get())
+        preco = float(preco_entry.get())
+    except ValueError:
+        resultado_label.config(text="Quantidade e Preço devem ser números válidos.")
+        return
     localizacao = localizacao_entry.get()
     #resultado_label.config(text=f"Produto '{nome}' adicionado com sucesso.")
 
     if nome and categoria and quantidade is not None and preco is not None and localizacao:
-        response = requests.post("http://127.0.0.1:8000/produtos/", data={
+        response = requests.post("http://127.0.0.1:8000/produtos/", json={
             'nome': nome,
             'categoria': categoria,
             'quantidade_estoque': quantidade,
@@ -58,6 +62,8 @@ localizacao_entry.grid(row=4, column=1)
 
 # Botão para adicionar produto
 Button(janela, text="Adicionar Produto", command=adicionar_produto_interface).grid(row=5, column=0, columnspan=2)
+Button(janela, text="Atualizar Produto", command=atualizar_produto).grid(row=5, column=1, columnspan=2)
+Button(janela, text="Sair", command=janela.quit).grid(row=5, column=2)
 
 # Label para mostrar resultados
 resultado_label = Label(janela, text="")
